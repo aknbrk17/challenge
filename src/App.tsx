@@ -20,12 +20,6 @@ export default function App() {
     setOpen(newOpen);
   };
 
-  const sampleData = [
-    { id: 1, name: 'Burak', surname: 'Akın', phoneNumber: '0531*****75' },
-    { id: 2, name: 'Fatih', surname: 'Batuk', phoneNumber: '123456789' }
-  ];
-  
-  localStorage.setItem('phonebook', JSON.stringify(sampleData));
   
   const DrawerList = (
     <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)}>

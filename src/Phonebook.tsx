@@ -11,13 +11,17 @@ import {
 import {
   GridRowsProp,
   GridRowModesModel,
-  GridRowModel,
   DataGrid,
   GridColDef,
   GridToolbarContainer,
+  GridActionsCellItem,
+  GridEventListener,
+  GridRowModel,
+  GridRowEditStopReasons,
   GridSlots
 } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
@@ -51,6 +55,7 @@ const Phonebook = () => {
   const [rows, setRows] = useState<GridRowsProp>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [currentRow, setCurrentRow] = useState<GridRowModel | null>(null);
 
   useEffect(() => {
     const storedData = localStorage.getItem('phonebook');
@@ -58,6 +63,12 @@ const Phonebook = () => {
       setRows(JSON.parse(storedData));
     }
   }, []);
+
+  const handleRowEditStop: GridEventListener<'rowEditStop'> = (params, event) => {
+    if (params.reason === GridRowEditStopReasons.rowFocusOut) {
+      event.defaultMuiPrevented = true;
+    }
+  };
 
   const processRowUpdate = (newRow: GridRowModel) => {
     const updatedRow = { ...newRow, isNew: false };
@@ -71,25 +82,53 @@ const Phonebook = () => {
     setRowModesModel(newRowModesModel);
   };
 
+  const handleUpdateClick = (row: GridRowModel) => () => {
+    setCurrentRow(row);
+    setDialogOpen(true);
+  };
+
   const columns: GridColDef[] = [
     { field: 'name', headerName: 'Name', width: 150, editable: true },
     { field: 'surname', headerName: 'Surname', width: 150, editable: true },
-    { field: 'phoneNumber', headerName: 'Phone Number', width: 150, editable: true }
+    { field: 'phoneNumber', headerName: 'Phone Number', width: 150, editable: true },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      cellClassName: 'actions',
+      getActions: ({ row }) => [
+        <GridActionsCellItem
+          icon={<EditIcon />}
+          label="Update"
+          className="textPrimary"
+          onClick={handleUpdateClick(row)}
+          color="inherit"
+        />
+      ]
+    }
   ];
 
   const formik = useFormik({
     initialValues: {
-      name: '',
-      surname: '',
-      phoneNumber: ''
+      name: currentRow?.name || '',
+      surname: currentRow?.surname || '',
+      phoneNumber: currentRow?.phoneNumber || ''
     },
+    enableReinitialize: true,
     validationSchema: validationSchema,
     onSubmit: (values, { resetForm }) => {
-      const newRows = [...rows, { id: rows.length + 1, ...values }];
+      let newRows;
+      if (currentRow) {
+        newRows = rows.map((row) => (row.id === currentRow.id ? { ...row, ...values } : row));
+      } else {
+        newRows = [...rows, { id: rows.length + 1, ...values }];
+      }
       setRows(newRows);
       localStorage.setItem('phonebook', JSON.stringify(newRows));
       setDialogOpen(false);
       resetForm();
+      setCurrentRow(null);
     }
   });
 
@@ -109,6 +148,7 @@ const Phonebook = () => {
           editMode="row"
           rowModesModel={rowModesModel}
           onRowModesModelChange={handleRowModesModelChange}
+          onRowEditStop={handleRowEditStop}
           processRowUpdate={processRowUpdate}
           slots={{ toolbar: EditToolbar as GridSlots['toolbar'] }}
           slotProps={{ toolbar: { setDialogOpen } }}
@@ -116,7 +156,7 @@ const Phonebook = () => {
       </Box>
 
       <Dialog open={isDialogOpen} onClose={() => setDialogOpen(false)}>
-        <DialogTitle>New Contact</DialogTitle>
+        <DialogTitle>{currentRow ? 'Update Contact' : 'New Contact'}</DialogTitle>
         <DialogContent>
           <form onSubmit={formik.handleSubmit}>
             <TextField
@@ -127,8 +167,7 @@ const Phonebook = () => {
               label="Name"
               value={formik.values.name}
               onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}
-              helperText={formik.touched.name && formik.errors.name}
+              error={formik.touched.name && Boolean(formik.errors.name)}            
             />
             <TextField
               fullWidth
@@ -139,7 +178,6 @@ const Phonebook = () => {
               value={formik.values.surname}
               onChange={formik.handleChange}
               error={formik.touched.surname && Boolean(formik.errors.surname)}
-              helperText={formik.touched.surname && formik.errors.surname}
             />
             <TextField
               fullWidth
@@ -150,7 +188,6 @@ const Phonebook = () => {
               value={formik.values.phoneNumber}
               onChange={formik.handleChange}
               error={formik.touched.phoneNumber && Boolean(formik.errors.phoneNumber)}
-              helperText={formik.touched.phoneNumber && formik.errors.phoneNumber}
             />
             <DialogActions>
               <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
