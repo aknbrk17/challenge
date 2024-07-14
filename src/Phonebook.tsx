@@ -16,12 +16,14 @@ import {
   GridToolbarContainer,
   GridActionsCellItem,
   GridEventListener,
+  GridRowId,
   GridRowModel,
   GridRowEditStopReasons,
   GridSlots
 } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 
@@ -55,7 +57,9 @@ const Phonebook = () => {
   const [rows, setRows] = useState<GridRowsProp>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [isConfirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [currentRow, setCurrentRow] = useState<GridRowModel | null>(null);
+  const [rowToDelete, setRowToDelete] = useState<GridRowId | null>(null);
 
   useEffect(() => {
     const storedData = localStorage.getItem('phonebook');
@@ -87,6 +91,21 @@ const Phonebook = () => {
     setDialogOpen(true);
   };
 
+  const handleDeleteClick = (id: GridRowId) => () => {
+    setRowToDelete(id);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (rowToDelete !== null) {
+      const newRows = rows.filter((row) => row.id !== rowToDelete);
+      setRows(newRows);
+      localStorage.setItem('phonebook', JSON.stringify(newRows));
+    }
+    setConfirmDialogOpen(false);
+    setRowToDelete(null);
+  };
+
   const columns: GridColDef[] = [
     { field: 'name', headerName: 'Name', width: 150, editable: true },
     { field: 'surname', headerName: 'Surname', width: 150, editable: true },
@@ -95,14 +114,21 @@ const Phonebook = () => {
       field: 'actions',
       type: 'actions',
       headerName: 'Actions',
-      width: 100,
+      width: 150,
       cellClassName: 'actions',
-      getActions: ({ row }) => [
+      getActions: ({ row, id }) => [
         <GridActionsCellItem
           icon={<EditIcon />}
           label="Update"
           className="textPrimary"
           onClick={handleUpdateClick(row)}
+          color="inherit"
+        />,
+        <GridActionsCellItem
+          icon={<DeleteIcon />}
+          label="Delete"
+          className="textPrimary"
+          onClick={handleDeleteClick(id)}
           color="inherit"
         />
       ]
@@ -167,7 +193,7 @@ const Phonebook = () => {
               label="Name"
               value={formik.values.name}
               onChange={formik.handleChange}
-              error={formik.touched.name && Boolean(formik.errors.name)}            
+              error={formik.touched.name && Boolean(formik.errors.name)}
             />
             <TextField
               fullWidth
@@ -197,6 +223,20 @@ const Phonebook = () => {
             </DialogActions>
           </form>
         </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isConfirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>Are you sure you want to delete this contact?</DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmDelete} color="primary">
+            OK
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
