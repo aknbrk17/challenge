@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import {
   Box,
@@ -53,7 +54,7 @@ function EditToolbar(props: EditToolbarProps) {
   );
 }
 
-const Phonebook = () => {
+const users = () => {
   const [rows, setRows] = useState<GridRowsProp>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -62,10 +63,15 @@ const Phonebook = () => {
   const [rowToDelete, setRowToDelete] = useState<GridRowId | null>(null);
 
   useEffect(() => {
-    const storedData = localStorage.getItem('phonebook');
-    if (storedData) {
-      setRows(JSON.parse(storedData));
-    }
+    const fetchData = async () => {
+      try {
+        const result = await axios.get('http://localhost:3000/users');
+        setRows(result.data);
+      } catch (error) {
+        console.error('Error fetching data: ', error);
+      }
+    };
+    fetchData();
   }, []);
 
   const handleRowEditStop: GridEventListener<'rowEditStop'> = (params, event) => {
@@ -74,11 +80,15 @@ const Phonebook = () => {
     }
   };
 
-  const processRowUpdate = (newRow: GridRowModel) => {
+  const processRowUpdate = async (newRow: GridRowModel) => {
     const updatedRow = { ...newRow, isNew: false };
-    const newRows = rows.map((row) => (row.id === newRow.id ? updatedRow : row));
-    setRows(newRows);
-    localStorage.setItem('phonebook', JSON.stringify(newRows));
+    try {
+      await axios.put(`http://localhost:3000/users/${newRow.id}`, updatedRow);
+      const newRows = rows.map((row) => (row.id === newRow.id ? updatedRow : row));
+      setRows(newRows);
+    } catch (error) {
+      console.error('Error updating row: ', error);
+    }
     return updatedRow;
   };
 
@@ -96,11 +106,15 @@ const Phonebook = () => {
     setConfirmDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (rowToDelete !== null) {
-      const newRows = rows.filter((row) => row.id !== rowToDelete);
-      setRows(newRows);
-      localStorage.setItem('phonebook', JSON.stringify(newRows));
+      try {
+        await axios.delete(`http://localhost:3000/users/${rowToDelete}`);
+        const newRows = rows.filter((row) => row.id !== rowToDelete);
+        setRows(newRows);
+      } catch (error) {
+        console.error('Error deleting row: ', error);
+      }
     }
     setConfirmDialogOpen(false);
     setRowToDelete(null);
@@ -143,15 +157,24 @@ const Phonebook = () => {
     },
     enableReinitialize: true,
     validationSchema: validationSchema,
-    onSubmit: (values, { resetForm }) => {
+    onSubmit: async (values, { resetForm }) => {
       let newRows;
       if (currentRow) {
-        newRows = rows.map((row) => (row.id === currentRow.id ? { ...row, ...values } : row));
+        try {
+          await axios.put(`http://localhost:3000/users/${currentRow.id}`, values);
+          newRows = rows.map((row) => (row.id === currentRow.id ? { ...row, ...values } : row));
+        } catch (error) {
+          console.error('Error updating contact: ', error);
+        }
       } else {
-        newRows = [...rows, { id: rows.length + 1, ...values }];
+        try {
+          const result = await axios.post('http://localhost:3000/users', values);
+          newRows = [...rows, result.data];
+        } catch (error) {
+          console.error('Error adding contact: ', error);
+        }
       }
       setRows(newRows);
-      localStorage.setItem('phonebook', JSON.stringify(newRows));
       setDialogOpen(false);
       resetForm();
       setCurrentRow(null);
@@ -242,4 +265,4 @@ const Phonebook = () => {
   );
 };
 
-export default Phonebook;
+export default users;
